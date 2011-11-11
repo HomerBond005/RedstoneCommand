@@ -1,0 +1,10 @@
+name: RedstoneCommand
+main: com.bukkit.HomerBond005.RedstoneCommand.RedstoneCommand
+version: 2.6.1
+author: HomerBond005
+description: >
+             RedstoneCommand
+commands:
+    rsc:
+        description: Toggles redstone power.
+        usage: Type /<command> for help.
