@@ -18,8 +18,7 @@ public class RSCL extends BlockListener{
     FileInputStream LocationsInput;
     public Configuration config;
     public static RedstoneCommand plugin;
-    public RSCL(RedstoneCommand redstoneCommand)
-    {
+    public RSCL(RedstoneCommand redstoneCommand){
         config = new Configuration(Locations);
         plugin = redstoneCommand;
     }
@@ -28,11 +27,10 @@ public class RSCL extends BlockListener{
         Player player = event.getPlayer();
         BlockState state = event.getBlock().getState();
         if(state instanceof Sign){
-            if(RedstoneCommand.permissionsystem == 0){
-                if(player.isOp()){
-                    if(event.getLine(0).equalsIgnoreCase("[rsc]")){
-                        if(config.getString("RedstoneCommands.Locations." + event.getLine(1)) != null)
-                        {
+        	if(event.getLine(0).equalsIgnoreCase("[rsc]")){
+	            if(RedstoneCommand.permissionsystem == 0){
+	                if(player.isOp()){
+                        if(config.getString("RedstoneCommands.Locations." + event.getLine(1)) != null){
                             player.sendMessage(ChatColor.RED + "The RSC " + ChatColor.GOLD + event.getLine(1) + ChatColor.RED + " already exists.");
                             event.getBlock().setType(Material.AIR);
                             ItemStack signpost = new ItemStack(323, 1);
@@ -51,7 +49,7 @@ public class RSCL extends BlockListener{
                     	try{
                     		thirdline = Integer.parseInt(event.getLine(2));
                     	}catch(NumberFormatException error){
-                    		if(event.getLine(2).toString() != ""){
+                    		if(event.getLine(2).toString() != ""&&event.getLine(2) != null){
                     			player.sendMessage(ChatColor.GOLD + event.getLine(2) + ChatColor.RED + " is not a number! Saved with a delay of 0 sec.");
                     		}
                     	}
@@ -61,21 +59,17 @@ public class RSCL extends BlockListener{
                     	config.setProperty((new StringBuilder("RedstoneCommands.Locations.")).append(event.getLine(1)).append(".DELAY").toString(), thirdline);
                         config.save();
                         player.sendMessage(ChatColor.GREEN + "Successfully created RSC named " + ChatColor.GOLD + event.getLine(1));
-                    }
-                }else{
-                    player.sendMessage((new StringBuilder()).append(ChatColor.RED).append("You aren't an OP!").toString());
-                    event.getBlock().setType(Material.AIR);
-                	ItemStack signpost = new ItemStack(323, 1);
-                    player.getInventory().addItem(new ItemStack[] {
-                        signpost
-                    });
-                }
-            }else if(RedstoneCommand.permissionsystem == 1)
-            {
-            	if(player.hasPermission("RSC.create")||player.hasPermission("RSC.*")){
-            		if(event.getLine(0).equalsIgnoreCase("[rsc]")){
-                        if(config.getString("RedstoneCommands.Locations." + event.getLine(1)) != null)
-                        {
+	                }else{
+	                    player.sendMessage((new StringBuilder()).append(ChatColor.RED).append("You aren't an OP!").toString());
+	                    event.getBlock().setType(Material.AIR);
+	                	ItemStack signpost = new ItemStack(323, 1);
+	                    player.getInventory().addItem(new ItemStack[] {
+	                        signpost
+	                    });
+	                }
+	            }else if(RedstoneCommand.permissionsystem == 1){
+	            	if(player.hasPermission("RSC.create")||player.hasPermission("RSC.*")){
+                        if(config.getString("RedstoneCommands.Locations." + event.getLine(1)) != null){
                             player.sendMessage(ChatColor.RED + "The RSC " + ChatColor.GOLD + event.getLine(1) + ChatColor.RED + " already exists.");
                             event.getBlock().setType(Material.AIR);
                             ItemStack signpost = new ItemStack(323, 1);
@@ -94,7 +88,7 @@ public class RSCL extends BlockListener{
                     	try{
                     		thirdline = Integer.parseInt(event.getLine(2));
                     	}catch(NumberFormatException error){
-                    		if(event.getLine(2).toString() != ""){
+                    		if(event.getLine(2).toString() != ""&&event.getLine(2) != null){
                     			player.sendMessage(ChatColor.GOLD + event.getLine(2) + ChatColor.RED + " is not a number! Saved with a delay of 0 sec.");
                     		}
                     	}
@@ -104,15 +98,15 @@ public class RSCL extends BlockListener{
                     	config.setProperty((new StringBuilder("RedstoneCommands.Locations.")).append(event.getLine(1)).append(".DELAY").toString(), thirdline);
                         config.save();
                         player.sendMessage(ChatColor.GREEN + "Successfully created RSC named " + ChatColor.GOLD + event.getLine(1));
-                    }
-            	}else{
-                	player.sendMessage((new StringBuilder()).append(ChatColor.RED).append("You don't have the nessecary permission!").toString());
-                	event.getBlock().setType(Material.AIR);
-                	ItemStack signpost = new ItemStack(323, 1);
-                    player.getInventory().addItem(new ItemStack[] {
-                        signpost
-                    });
-            	}
+	            	}else{
+	                	player.sendMessage((new StringBuilder()).append(ChatColor.RED).append("You don't have the nessecary permission!").toString());
+	                	event.getBlock().setType(Material.AIR);
+	                	ItemStack signpost = new ItemStack(323, 1);
+	                    player.getInventory().addItem(new ItemStack[] {
+	                        signpost
+	                    });
+	            	}
+	            }
             }
         }
     }
