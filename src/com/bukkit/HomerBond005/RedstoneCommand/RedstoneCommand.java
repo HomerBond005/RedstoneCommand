@@ -130,8 +130,7 @@ public class RedstoneCommand extends JavaPlugin{
         rscs[0] = rscs[0].substring(1);
         return rscs;
     }
-    private void PLAYERlistRSC(Player player)
-    {
+    private void PLAYERlistRSC(Player player){
         player.sendMessage((new StringBuilder()).append(ChatColor.GREEN).append("Following RSCs are set:").toString());
         String rscsstring = "";
         for(int i = 0; i < listRSC().length; i++){
@@ -228,12 +227,11 @@ public class RedstoneCommand extends JavaPlugin{
         if(position.getBlock().getType() == Material.REDSTONE_TORCH_ON){
             position.getBlock().setType(Material.AIR);
             System.out.println("[RSC]: Successfully toggled RSC named " + name);
-        }
-        else{
+        }else{
         	Runnable delayedrun = new Runnable(){
         		public void run(){
-		            if(config.getInt("[RSC]: RedstoneCommands.Locations." + name + ".DELAY", 0) != 0){
-		            	try {
+		            if(config.getInt("RedstoneCommands.Locations." + name + ".DELAY", 0) != 0){
+		            	try{
 		    				Thread.sleep(Integer.parseInt(config.getProperty("RedstoneCommands.Locations." + name + ".DELAY").toString())*1000);
 		    			} catch (NumberFormatException e) {
 		    				e.printStackTrace();
@@ -244,14 +242,13 @@ public class RedstoneCommand extends JavaPlugin{
 		            }
         		}
         	};
-        	SwingUtilities.invokeLater(delayedrun);
+			SwingUtilities.invokeLater(delayedrun);
         	position.getBlock().setType(Material.REDSTONE_TORCH_ON);
         	System.out.println("[RSC]: Successfully delayed RSC named " + name);
         }
         config.save();
     }
-    public void deleteRSCc(String name)
-    {
+    public void deleteRSCc(String name){
         if(name != null)
         {
             config.load();
