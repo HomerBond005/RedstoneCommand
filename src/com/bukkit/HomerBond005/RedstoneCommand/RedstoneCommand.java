@@ -1,35 +1,38 @@
 package com.bukkit.HomerBond005.RedstoneCommand;
 
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
 
 import javax.swing.SwingUtilities;
 
-import org.bukkit.*;
+import org.bukkit.ChatColor;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.util.config.Configuration;
 
 import ru.tehkode.permissions.PermissionManager;
 import ru.tehkode.permissions.bukkit.PermissionsEx;
 
-@SuppressWarnings("deprecation")
 public class RedstoneCommand extends JavaPlugin{
 	static PermissionManager permissions;
 	public static int permissionsystem;
     static String mainDir = "plugins/RedstoneCommand";
     static File locationsfile = new File(mainDir + File.separator + "Locations.yml");
     static File configfile = new File(mainDir + File.separator + "config.yml");
-    public Configuration config;
+    public FileConfiguration config;
     private final RSCL blocklistener = new RSCL(this);
     public void onEnable(){
         PluginManager pm = getServer().getPluginManager();
-        pm.registerEvent(org.bukkit.event.Event.Type.SIGN_CHANGE, blocklistener, org.bukkit.event.Event.Priority.High, this);
-        pm.registerEvent(org.bukkit.event.Event.Type.BLOCK_BREAK, blocklistener, org.bukkit.event.Event.Priority.Normal, this);
+        pm.registerEvents(blocklistener, this);
         (new File(mainDir)).mkdir();
-        config = new Configuration(configfile);
+        config = YamlConfiguration.loadConfiguration(configfile);
         if(!configfile.exists()){
         	if(locationsfile.exists()){
 	    		locationsfile.renameTo(configfile);
@@ -39,9 +42,9 @@ public class RedstoneCommand extends JavaPlugin{
 	            {
 	                String root = "RedstoneCommands.Locations";
 	                configfile.createNewFile();
-	                config.setProperty(root, "{}");
-	                config.setProperty("RedstoneCommands.permissionsEnabled", 0);
-	                config.save();
+	                config.set(root, "{}");
+	                config.set("RedstoneCommands.permissionsEnabled", 0);
+	                config.save(configfile);
 	                System.out.println("[RedstoneCommand]: config.yml created.");
 	            }
 	            catch(IOException e)
@@ -50,19 +53,23 @@ public class RedstoneCommand extends JavaPlugin{
 	            }
 	    	}
         }
-        config.load();
+        try {
+			config.load(configfile);
+		} catch (Exception e){}
     	try{
     		int permEn = config.getInt("RedstoneCommands.permissionsEnabled", 2);
     		if(permEn == 2){
     			System.out.println("[RedstoneCommand]: permissionsEnabled has a wrong value! Changing to 0");
-	    		config.setProperty("RedstoneCommands.permissionsEnabled", 0);
+	    		config.set("RedstoneCommands.permissionsEnabled", 0);
     		}
     	}catch(NullPointerException e){
-    		config.setProperty("RedstoneCommands.permissionsEnabled", 0);
+    		config.set("RedstoneCommands.permissionsEnabled", 0);
     		System.out.println("[RedstoneCommand]: Update to v2.5. To enable permissions, change permissionsEnabled to 1.");
     	}
-    	config.save();
-    	config.load();
+    	try {
+			config.save(configfile);
+		}catch(IOException e){
+		}
     	if(config.getInt("RedstoneCommands.permissionsEnabled", 2) == 1){
     		if(getServer().getPluginManager().isPluginEnabled("PermissionsEx")){
     		    permissions = PermissionsEx.getPermissionManager();
@@ -79,59 +86,55 @@ public class RedstoneCommand extends JavaPlugin{
         System.out.println("[RedstoneCommand]: config.yml loaded.");
         System.out.println("[RedstoneCommand] is enabled!");
     }
-    public void onDisable()
-    {
+    public void onDisable(){
         System.out.println("[RedstoneCommand] is disabled!");
     }
-    private void deleteRSC(Player player, String name)
-    {
-        if(name != null)
-        {
-            config.load();
-            if(config.getString("RedstoneCommands.Locations." + name) != null)
-            {
-                int x = ((Integer)config.getProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).append(".X").toString())).intValue();
-                int y = ((Integer)config.getProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).append(".Y").toString())).intValue();
-                int z = ((Integer)config.getProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).append(".Z").toString())).intValue();
-                World world = getServer().getWorld(config.getProperty("RedstoneCommands.Locations." + name + ".WORLD").toString());
-                config.removeProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).toString());
+    private void deleteRSC(Player player, String name){
+        if(name != null){
+            if(config.getString("RedstoneCommands.Locations." + name) != null){
+                int x = config.getInt("RedstoneCommands.Locations." + name + ".X");
+                int y = config.getInt("RedstoneCommands.Locations." + name + ".Y");
+                int z = config.getInt("RedstoneCommands.Locations." + name + ".Z");
+                World world = getServer().getWorld(config.getString("RedstoneCommands.Locations." + name + ".WORLD"));
+                config.set("RedstoneCommands.Locations." + name, null);
                 Location torchposition = new Location(world, x - 1, y, z);
                 Location signposition = new Location(world, x, y, z);
                 signposition.getChunk().load();
                 torchposition.getChunk().load();
                 signposition.getBlock().setType(Material.AIR);
                 torchposition.getBlock().setType(Material.AIR);
-                config.save();
+                try{
+					config.save(configfile);
+				}catch(IOException e){
+				}
                 player.sendMessage((new StringBuilder()).append(ChatColor.GREEN).append("Successfully deleted RSC ").append(ChatColor.GOLD).append(name).toString());
             } else{
                 player.sendMessage((new StringBuilder()).append(ChatColor.RED).append("The RSC ").append(ChatColor.GOLD).append(name).append(ChatColor.RED).append(" doesn's exist.").toString());
             }
-        } else{
+        }else{
             player.sendMessage((new StringBuilder()).append(ChatColor.RED).append("Wrong syntax! Try: /rsc delete [name]").toString());
         }
     }
     private void toggleRSC(final Player player, final String name){
-        config.load();
         if(config.getString("RedstoneCommands.Locations." + name) == null){
         	player.sendMessage(ChatColor.RED + "The following RSC doesn't exist: " + ChatColor.GOLD + name);
         	  return;
         }
-        int x = ((Integer)config.getProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).append(".X").toString())).intValue();
-        int y = ((Integer)config.getProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).append(".Y").toString())).intValue();
-        int z = ((Integer)config.getProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).append(".Z").toString())).intValue();
-        World world = getServer().getWorld(config.getProperty("RedstoneCommands.Locations." + name + ".WORLD").toString());
+        int x = config.getInt("RedstoneCommands.Locations." + name + ".X");
+        int y = config.getInt("RedstoneCommands.Locations." + name + ".Y");
+        int z = config.getInt("RedstoneCommands.Locations." + name + ".Z");
+        World world = getServer().getWorld(config.getString("RedstoneCommands.Locations." + name + ".WORLD"));
         final Location position = new Location(world, x - 1, y, z);
         if(position.getBlock().getType() == Material.REDSTONE_TORCH_ON){
         	position.getChunk().load();
             position.getBlock().setType(Material.AIR);
             player.sendMessage(ChatColor.GREEN + "Successfully toggled RSC named " + ChatColor.GOLD + name);
-        }
-        else{
+        }else{
         	Runnable delayedrun = new Runnable(){
         		public void run(){
 		            if(config.getInt("RedstoneCommands.Locations." + name + ".DELAY", 0) != 0){
 		            	try {
-		    				Thread.sleep(Integer.parseInt(config.getProperty("RedstoneCommands.Locations." + name + ".DELAY").toString())*1000);
+		    				Thread.sleep(config.getInt("RedstoneCommands.Locations." + name + ".DELAY")*1000);
 		    			} catch (NumberFormatException e) {
 		    				e.printStackTrace();
 		    			} catch (InterruptedException e) {
@@ -148,58 +151,61 @@ public class RedstoneCommand extends JavaPlugin{
         	SwingUtilities.invokeLater(delayedrun);
         	position.getBlock().setType(Material.REDSTONE_TORCH_ON);
         }
-        config.save();
+        try{
+			config.save(configfile);
+		}catch(IOException e){
+		}
     }
     private void rscON(Player player, final String name){
-    	config.load();
         if(config.getString("RedstoneCommands.Locations." + name) == null){
         	player.sendMessage(ChatColor.RED + "The following RSC doesn't exist: " + ChatColor.GOLD + name);
         	  return;
         }
-        int x = ((Integer)config.getProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).append(".X").toString())).intValue();
-        int y = ((Integer)config.getProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).append(".Y").toString())).intValue();
-        int z = ((Integer)config.getProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).append(".Z").toString())).intValue();
-        World world = getServer().getWorld(config.getProperty("RedstoneCommands.Locations." + name + ".WORLD").toString());
+        int x = config.getInt("RedstoneCommands.Locations." + name + ".X");
+        int y = config.getInt("RedstoneCommands.Locations." + name + ".Y");
+        int z = config.getInt("RedstoneCommands.Locations." + name + ".Z");
+        World world = getServer().getWorld(config.getString("RedstoneCommands.Locations." + name + ".WORLD"));
         final Location position = new Location(world, x - 1, y, z);
         position.getChunk().load();
         position.getBlock().setType(Material.REDSTONE_TORCH_ON);
     	player.sendMessage(ChatColor.GREEN + "Successfully turned on RSC named " + ChatColor.GOLD + name);
     }
     private void rscOFF(Player player, final String name){
-    	config.load();
         if(config.getString("RedstoneCommands.Locations." + name) == null){
         	  player.sendMessage(ChatColor.RED + "The following RSC doesn't exist: " + ChatColor.GOLD + name);
         	  return;
         }
-        int x = ((Integer)config.getProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).append(".X").toString())).intValue();
-        int y = ((Integer)config.getProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).append(".Y").toString())).intValue();
-        int z = ((Integer)config.getProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).append(".Z").toString())).intValue();
-        World world = getServer().getWorld(config.getProperty("RedstoneCommands.Locations." + name + ".WORLD").toString());
+        int x = config.getInt("RedstoneCommands.Locations." + name + ".X");
+        int y = config.getInt("RedstoneCommands.Locations." + name + ".Y");
+        int z = config.getInt("RedstoneCommands.Locations." + name + ".Z");
+        World world = getServer().getWorld(config.getString("RedstoneCommands.Locations." + name + ".WORLD"));
         final Location position = new Location(world, x - 1, y, z);
         position.getChunk().load();
         position.getBlock().setType(Material.AIR);
         player.sendMessage(ChatColor.GREEN + "Successfully turned off RSC named " + ChatColor.GOLD + name);
     }
     private String[] listRSC(){
-        config.load();
-        String rscs[] = config.getNodes("RedstoneCommands.Locations").toString().split(", ");
-        rscs[0] = rscs[0].substring(1);
-        return rscs;
+        Object[] rscs = config.getConfigurationSection("RedstoneCommands.Locations").getKeys(false).toArray();
+        String[] rscs2 = new String[rscs.length];
+        for(int i = 0; i < rscs.length; i++){
+        	rscs2[i] = rscs[i].toString();
+        }
+        return rscs2;
     }
     private void PLAYERlistRSC(Player player){
-        player.sendMessage((new StringBuilder()).append(ChatColor.GREEN).append("Following RSCs are set:").toString());
+        player.sendMessage(ChatColor.GREEN + "Following RSCs are set:");
         String rscsstring = "";
-        for(int i = 0; i < listRSC().length; i++){
-            if(listRSC()[i].toLowerCase().equals("}")){
-                player.sendMessage((new StringBuilder()).append(ChatColor.GRAY).append("No RSCs are set.").toString());
-                return;
-            }
-            if(i + 1 == listRSC().length)
-                rscsstring = (new StringBuilder(String.valueOf(rscsstring))).append(listRSC()[i].split("=")[0]).toString();
-            else
-                rscsstring = (new StringBuilder(String.valueOf(rscsstring))).append(listRSC()[i].split("=")[0]).append(", ").toString();
+        if(listRSC().length == 0){
+        	player.sendMessage(ChatColor.GRAY + "No RSCs are set.");
+        	return;
         }
-        player.sendMessage((new StringBuilder()).append(ChatColor.GOLD).append(rscsstring).toString());
+        for(int i = 0; i < listRSC().length; i++){
+            if(i + 1 == listRSC().length)
+                rscsstring += listRSC()[i];
+            else
+                rscsstring += listRSC()[i] + ", ";
+        }
+        player.sendMessage(ChatColor.GOLD + rscsstring);
     }
     public boolean onCommand(CommandSender sender, Command command, String commandLabel, String args[]){
     	Player player = null;
@@ -207,6 +213,10 @@ public class RedstoneCommand extends JavaPlugin{
     		player = (Player)sender;
     	}catch(ClassCastException e){
     		ConsoleHandler handler = new ConsoleHandler(this);
+    		try {
+				config.load(configfile);
+			}catch(Exception e1){
+			}
     		handler.handleConsole(sender, command, args);
     		return true;
     	}
@@ -235,6 +245,9 @@ public class RedstoneCommand extends JavaPlugin{
         }
         String name = args[0];
         if(command.getName().toLowerCase().equals("rsc")){
+        	try{
+        		config.load(configfile);
+        	}catch(Exception e){}
             if(name.toLowerCase().equals("list")){
             	if(checkPermission(player, "RSC.list")||checkPermission(player, "RSC.*"))
             		PLAYERlistRSC(player);
@@ -283,15 +296,14 @@ public class RedstoneCommand extends JavaPlugin{
     }
     // CONSOLE FUNCTIONS
 	public void toggleRSCc(final String name){
-        config.load();
         if(config.getString("RedstoneCommands.Locations." + name) == null){
         	  System.out.println("[RSC]: The following RSC doesn't exist: " + name);
         	  return;
         }
-        int x = ((Integer)config.getProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).append(".X").toString())).intValue();
-        int y = ((Integer)config.getProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).append(".Y").toString())).intValue();
-        int z = ((Integer)config.getProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).append(".Z").toString())).intValue();
-        World world = getServer().getWorld(config.getProperty("RedstoneCommands.Locations." + name + ".WORLD").toString());
+        int x = config.getInt("RedstoneCommands.Locations." + name + ".X");
+        int y = config.getInt("RedstoneCommands.Locations." + name + ".Y");
+        int z = config.getInt("RedstoneCommands.Locations." + name + ".Z");
+        World world = getServer().getWorld(config.getString("RedstoneCommands.Locations." + name + ".WORLD"));
         final Location position = new Location(world, x - 1, y, z);
         if(position.getBlock().getType() == Material.REDSTONE_TORCH_ON){
         	position.getChunk().load();
@@ -302,7 +314,7 @@ public class RedstoneCommand extends JavaPlugin{
         		public void run(){
 		            if(config.getInt("RedstoneCommands.Locations." + name + ".DELAY", 0) != 0){
 		            	try{
-		    				Thread.sleep(Integer.parseInt(config.getProperty("RedstoneCommands.Locations." + name + ".DELAY").toString())*1000);
+		    				Thread.sleep(config.getInt("RedstoneCommands.Locations." + name + ".DELAY")*1000);
 		    			} catch (NumberFormatException e) {
 		    				e.printStackTrace();
 		    			} catch (InterruptedException e) {
@@ -319,28 +331,27 @@ public class RedstoneCommand extends JavaPlugin{
 			SwingUtilities.invokeLater(delayedrun);
         	position.getBlock().setType(Material.REDSTONE_TORCH_ON);
         }
-        config.save();
     }
     public void deleteRSCc(String name){
-        if(name != null)
-        {
-            config.load();
-            if(config.getString("RedstoneCommands.Locations." + name) != null)
-            {
-                int x = ((Integer)config.getProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).append(".X").toString())).intValue();
-                int y = ((Integer)config.getProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).append(".Y").toString())).intValue();
-                int z = ((Integer)config.getProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).append(".Z").toString())).intValue();
-                World world = getServer().getWorld(config.getProperty("RedstoneCommands.Locations." + name + ".WORLD").toString());
-                config.removeProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).toString());
+        if(name != null){
+            if(config.getString("RedstoneCommands.Locations." + name) != null){
+            	int x = config.getInt("RedstoneCommands.Locations." + name + ".X");
+                int y = config.getInt("RedstoneCommands.Locations." + name + ".Y");
+                int z = config.getInt("RedstoneCommands.Locations." + name + ".Z");
+                World world = getServer().getWorld(config.getString("RedstoneCommands.Locations." + name + ".WORLD"));
+                config.set("RedstoneCommands.Locations." + name, null);
                 Location torchposition = new Location(world, x - 1, y, z);
                 Location signposition = new Location(world, x, y, z);
                 signposition.getChunk().load();
                 torchposition.getChunk().load();
                 signposition.getBlock().setType(Material.AIR);
                 torchposition.getBlock().setType(Material.AIR);
-                config.save();
+                try{
+                	config.save(configfile);
+                }catch(Exception e){
+                }
                 System.out.println("[RSC]: Successfully deleted RSC " + name);
-            } else{
+            }else{
                 System.out.println("[RSC]: The RSC " + name + " doesn's exist.");
             }
         } else{
@@ -351,43 +362,41 @@ public class RedstoneCommand extends JavaPlugin{
     {
        	System.out.println("[RSC]: Following RSCs are set:");
         String rscsstring = "";
+        if(listRSC().length == 0){
+            System.out.println("[RSC]: No RSCs are set.");
+            return;
+        }
         for(int i = 0; i < listRSC().length; i++){
-            if(listRSC()[i].toLowerCase().equals("}")){
-                System.out.println("[RSC]: No RSCs are set.");
-                return;
-            }
             if(i + 1 == listRSC().length)
-                rscsstring = (new StringBuilder(String.valueOf(rscsstring))).append(listRSC()[i].split("=")[0]).toString();
+                rscsstring += listRSC()[i];
             else
-                rscsstring = (new StringBuilder(String.valueOf(rscsstring))).append(listRSC()[i].split("=")[0]).append(", ").toString();
+                rscsstring += listRSC()[i] + ", ";
         }
         System.out.println("[RSC]: " + rscsstring);
     }
     public void rscONc(final String name){
-    	config.load();
         if(config.getString("RedstoneCommands.Locations." + name) == null){
         	System.out.println("[RSC]: The following RSC doesn't exist: " + name);
         	  return;
         }
-        int x = ((Integer)config.getProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).append(".X").toString())).intValue();
-        int y = ((Integer)config.getProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).append(".Y").toString())).intValue();
-        int z = ((Integer)config.getProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).append(".Z").toString())).intValue();
-        World world = getServer().getWorld(config.getProperty("RedstoneCommands.Locations." + name + ".WORLD").toString());
+        int x = config.getInt("RedstoneCommands.Locations." + name + ".X");
+        int y = config.getInt("RedstoneCommands.Locations." + name + ".Y");
+        int z = config.getInt("RedstoneCommands.Locations." + name + ".Z");
+        World world = getServer().getWorld(config.getString("RedstoneCommands.Locations." + name + ".WORLD"));
         final Location position = new Location(world, x - 1, y, z);
         position.getChunk().load();
         position.getBlock().setType(Material.REDSTONE_TORCH_ON);
     	System.out.println("[RSC]: Successfully turned on RSC named " + name);
     }
     public void rscOFFc(final String name){
-    	config.load();
         if(config.getString("RedstoneCommands.Locations." + name) == null){
         	System.out.println("[RSC]: The following RSC doesn't exist: " + name);
         	  return;
         }
-        int x = ((Integer)config.getProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).append(".X").toString())).intValue();
-        int y = ((Integer)config.getProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).append(".Y").toString())).intValue();
-        int z = ((Integer)config.getProperty((new StringBuilder("RedstoneCommands.Locations.")).append(name).append(".Z").toString())).intValue();
-        World world = getServer().getWorld(config.getProperty("RedstoneCommands.Locations." + name + ".WORLD").toString());
+        int x = config.getInt("RedstoneCommands.Locations." + name + ".X");
+        int y = config.getInt("RedstoneCommands.Locations." + name + ".Y");
+        int z = config.getInt("RedstoneCommands.Locations." + name + ".Z");
+        World world = getServer().getWorld(config.getString("RedstoneCommands.Locations." + name + ".WORLD"));
         final Location position = new Location(world, x - 1, y, z);
         position.getChunk().load();
         position.getBlock().setType(Material.AIR);

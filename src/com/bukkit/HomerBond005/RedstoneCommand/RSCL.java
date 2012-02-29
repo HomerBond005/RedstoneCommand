@@ -2,27 +2,31 @@ package com.bukkit.HomerBond005.RedstoneCommand;
 
 import java.io.File;
 import java.io.FileInputStream;
+
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.block.*;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.event.block.BlockListener;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.util.config.Configuration;
 
-@SuppressWarnings("deprecation")
-public class RSCL extends BlockListener{
+public class RSCL implements Listener{
     static String mainDir = "plugins/RedstoneCommand";
     static File configfile = new File(mainDir + File.separator + "config.yml");
     FileInputStream LocationsInput;
-    public Configuration config;
+    public FileConfiguration config;
     public static RedstoneCommand plugin;
     public RSCL(RedstoneCommand redstoneCommand){
-        config = new Configuration(configfile);
+        config = YamlConfiguration.loadConfiguration(configfile);
         plugin = redstoneCommand;
     }
+    @EventHandler(priority = EventPriority.HIGH)
     public void onBlockBreak(BlockBreakEvent event){
     	if(event.getBlock().getType() == Material.SIGN||event.getBlock().getType() == Material.SIGN_POST){
     		Sign sign = (Sign) event.getBlock().getState();
@@ -32,8 +36,11 @@ public class RSCL extends BlockListener{
     		}
     	}
     }
+    @EventHandler(priority = EventPriority.HIGH)
 	public void onSignChange(SignChangeEvent event){
-    	config.load();
+    	try{
+    		config.load(configfile);
+    	}catch(Exception e){}
         Player player = event.getPlayer();
         BlockState state = event.getBlock().getState();
         if(state instanceof Sign){
@@ -56,12 +63,14 @@ public class RSCL extends BlockListener{
                     });
                     return;
                 }
-                event.getBlock().getFace(BlockFace.NORTH).setType(Material.REDSTONE_TORCH_ON);
-                config.load();
-                config.setProperty((new StringBuilder("RedstoneCommands.Locations.")).append(event.getLine(1)).append(".X").toString(), Integer.valueOf(event.getBlock().getX()));
-                config.setProperty((new StringBuilder("RedstoneCommands.Locations.")).append(event.getLine(1)).append(".Y").toString(), Integer.valueOf(event.getBlock().getY()));
-                config.setProperty((new StringBuilder("RedstoneCommands.Locations.")).append(event.getLine(1)).append(".Z").toString(), Integer.valueOf(event.getBlock().getZ()));
-                config.setProperty((new StringBuilder("RedstoneCommands.Locations.")).append(event.getLine(1)).append(".WORLD").toString(), event.getBlock().getWorld().getName());
+                event.getBlock().getWorld().getBlockAt(event.getBlock().getLocation().add(-1, 0, 0)).setType(Material.REDSTONE_TORCH_ON);
+                try {
+					config.load(configfile);
+				}catch(Exception e){}
+                config.set("RedstoneCommands.Locations." + event.getLine(1) + ".X", Integer.valueOf(event.getBlock().getX()));
+                config.set("RedstoneCommands.Locations." + event.getLine(1) + ".Y", Integer.valueOf(event.getBlock().getY()));
+                config.set("RedstoneCommands.Locations." + event.getLine(1) + ".Z", Integer.valueOf(event.getBlock().getZ()));
+                config.set("RedstoneCommands.Locations." + event.getLine(1) + ".WORLD", event.getBlock().getWorld().getName());
             	int thirdline = 0;
             	try{
             		thirdline = Integer.parseInt(event.getLine(2));
@@ -72,10 +81,12 @@ public class RSCL extends BlockListener{
             		event.setLine(2, "0");
             	}
             	if(thirdline != 0){
-            		event.getBlock().getFace(BlockFace.NORTH).setType(Material.AIR);
+            		event.getBlock().getWorld().getBlockAt(event.getBlock().getLocation().add(-1, 0, 0)).setType(Material.AIR);
             	}
-            	config.setProperty((new StringBuilder("RedstoneCommands.Locations.")).append(event.getLine(1)).append(".DELAY").toString(), thirdline);
-                config.save();
+            	config.set("RedstoneCommands.Locations." + event.getLine(1) + ".DELAY", thirdline);
+            	try{
+                	config.save(configfile);
+        		}catch(Exception e){}
                 player.sendMessage(ChatColor.GREEN + "Successfully created RSC named " + ChatColor.GOLD + event.getLine(1));
             }
         }
