@@ -3,8 +3,6 @@ package com.bukkit.HomerBond005.RedstoneCommand;
 import java.io.File;
 import java.io.IOException;
 
-import javax.swing.SwingUtilities;
-
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -130,31 +128,20 @@ public class RedstoneCommand extends JavaPlugin{
             position.getBlock().setType(Material.AIR);
             player.sendMessage(ChatColor.GREEN + "Successfully toggled RSC named " + ChatColor.GOLD + name);
         }else{
-        	Runnable delayedrun = new Runnable(){
-        		public void run(){
-		            if(config.getInt("RedstoneCommands.Locations." + name + ".DELAY", 0) != 0){
-		            	try {
-		    				Thread.sleep(config.getInt("RedstoneCommands.Locations." + name + ".DELAY")*1000);
-		    			} catch (NumberFormatException e) {
-		    				e.printStackTrace();
-		    			} catch (InterruptedException e) {
-		    				e.printStackTrace();
-		    			}
-		    			position.getChunk().load();
-		    			position.getBlock().setType(Material.AIR);
-		    			player.sendMessage(ChatColor.GREEN + "Successfully delayed RSC named " + ChatColor.GOLD + name);
-		            }else{
+        	getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+				@Override
+				public void run(){
+					if(config.getInt("RedstoneCommands.Locations." + name + ".DELAY", 0) != 0){
+						position.getChunk().load();
+	    				position.getBlock().setType(Material.AIR);
+	    				player.sendMessage(ChatColor.GREEN + "Successfully delayed RSC named " + ChatColor.GOLD + name);
+					}else{
 		            	player.sendMessage(ChatColor.GREEN + "Successfully toggled RSC named " + ChatColor.GOLD + name);
 		            }
-        		}
-        	};
-        	SwingUtilities.invokeLater(delayedrun);
+				}
+			}, 20L*config.getInt("RedstoneCommands.Locations." + name + ".DELAY", 0));
         	position.getBlock().setType(Material.REDSTONE_TORCH_ON);
         }
-        try{
-			config.save(configfile);
-		}catch(IOException e){
-		}
     }
     private void rscON(Player player, final String name){
         if(config.getString("RedstoneCommands.Locations." + name) == null){
@@ -310,25 +297,18 @@ public class RedstoneCommand extends JavaPlugin{
             position.getBlock().setType(Material.AIR);
             System.out.println("[RSC]: Successfully toggled RSC named " + name);
         }else{
-        	Runnable delayedrun = new Runnable(){
-        		public void run(){
-		            if(config.getInt("RedstoneCommands.Locations." + name + ".DELAY", 0) != 0){
-		            	try{
-		    				Thread.sleep(config.getInt("RedstoneCommands.Locations." + name + ".DELAY")*1000);
-		    			} catch (NumberFormatException e) {
-		    				e.printStackTrace();
-		    			} catch (InterruptedException e) {
-		    				e.printStackTrace();
-		    			}
-		    			position.getChunk().load();
-		    			position.getBlock().setType(Material.AIR);
-		    			System.out.println("[RSC]: Successfully delayed RSC named " + name);
-		            }else{
-		            	System.out.println("[RSC]: Successfully toggled RSC named " + name);
+        	getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+				@Override
+				public void run(){
+					if(config.getInt("RedstoneCommands.Locations." + name + ".DELAY", 0) != 0){
+						position.getChunk().load();
+	    				position.getBlock().setType(Material.AIR);
+	    				System.out.println("[RSC]: Successfully delayed RSC named " + name);
+					}else{
+						System.out.println("[RSC]: Successfully toggled RSC named " + name);
 		            }
-        		}
-        	};
-			SwingUtilities.invokeLater(delayedrun);
+				}
+			}, 20L*config.getInt("RedstoneCommands.Locations." + name + ".DELAY", 0));
         	position.getBlock().setType(Material.REDSTONE_TORCH_ON);
         }
     }
