@@ -1,4 +1,10 @@
-package com.bukkit.HomerBond005.RedstoneCommand;
+/*
+ * Copyright HomerBond005
+ * 
+ *  Published under CC BY-NC-ND 3.0
+ *  http://creativecommons.org/licenses/by-nc-nd/3.0/
+ */
+package de.HomerBond005.RedstoneCommand;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -45,8 +51,8 @@ public class RSCL implements Listener{
         BlockState state = event.getBlock().getState();
         if(state instanceof Sign){
         	if(event.getLine(0).equalsIgnoreCase("[rsc]")){
-	            if(!RedstoneCommand.checkPermission(player, "RSC.create")||!RedstoneCommand.checkPermission(player, "RSC.*")){
-                    player.sendMessage(ChatColor.RED + RedstoneCommand.getNoPermMsg());
+	            if(!plugin.pc.has(player, "RSC.create")||!plugin.pc.has(player, "RSC.*")){
+                    plugin.pc.sendNoPermMsg(player);
                     event.getBlock().setType(Material.AIR);
                 	ItemStack signpost = new ItemStack(323, 1);
                     player.getInventory().addItem(new ItemStack[] {

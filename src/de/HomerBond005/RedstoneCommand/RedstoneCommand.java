@@ -1,8 +1,13 @@
-package com.bukkit.HomerBond005.RedstoneCommand;
+/*
+ * Copyright HomerBond005
+ * 
+ *  Published under CC BY-NC-ND 3.0
+ *  http://creativecommons.org/licenses/by-nc-nd/3.0/
+ */
+package de.HomerBond005.RedstoneCommand;
 
 import java.io.File;
 import java.io.IOException;
-
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -14,18 +19,17 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
-
-import ru.tehkode.permissions.PermissionManager;
-import ru.tehkode.permissions.bukkit.PermissionsEx;
+import org.mcstats.Metrics.Metrics;
+import de.HomerBond005.Permissions.PermissionsChecker;
 
 public class RedstoneCommand extends JavaPlugin{
-	static PermissionManager permissions;
-	public static int permissionsystem;
-    static String mainDir = "plugins/RedstoneCommand";
-    static File locationsfile = new File(mainDir + File.separator + "Locations.yml");
-    static File configfile = new File(mainDir + File.separator + "config.yml");
-    public FileConfiguration config;
+    private String mainDir = "plugins/RedstoneCommand";
+    private File locationsfile = new File(mainDir + File.separator + "Locations.yml");
+    private File configfile = new File(mainDir + File.separator + "config.yml");
+    private FileConfiguration config;
     private final RSCL blocklistener = new RSCL(this);
+    PermissionsChecker pc;
+    private Metrics metrics;
     public void onEnable(){
         PluginManager pm = getServer().getPluginManager();
         pm.registerEvents(blocklistener, this);
@@ -69,19 +73,17 @@ public class RedstoneCommand extends JavaPlugin{
 		}catch(IOException e){
 		}
     	if(config.getInt("RedstoneCommands.permissionsEnabled", 2) == 1){
-    		if(getServer().getPluginManager().isPluginEnabled("PermissionsEx")){
-    		    permissions = PermissionsEx.getPermissionManager();
-    		    permissionsystem = 2;
-    		    System.out.println("[RedstoneCommand]: Using PermissionsEx!");
-    		}else{
-    			permissionsystem = 1;
-    			System.out.println("[RedstoneCommand]: Using Bukkit Permissions!");
-    		}
+    		pc = new PermissionsChecker(this, true);
     	}else{
-    		permissionsystem = 0;
-    		System.out.println("[RedstoneCommand]: Defaulting to OP-only.");
+    		pc = new PermissionsChecker(this, false);
     	}
         System.out.println("[RedstoneCommand]: config.yml loaded.");
+        try{
+        	metrics = new Metrics(this);
+        	metrics.start();
+        }catch(IOException e){
+        	System.err.println("[RedstoneCommand]: Error while enabling Metrics.");
+        }
         System.out.println("[RedstoneCommand] is enabled!");
     }
     public void onDisable(){
@@ -179,7 +181,7 @@ public class RedstoneCommand extends JavaPlugin{
         }
         return rscs2;
     }
-    private void PLAYERlistRSC(Player player){
+    private void playerListRSC(Player player){
         player.sendMessage(ChatColor.GREEN + "Following RSCs are set:");
         String rscsstring = "";
         if(listRSC().length == 0){
@@ -236,50 +238,33 @@ public class RedstoneCommand extends JavaPlugin{
         		config.load(configfile);
         	}catch(Exception e){}
             if(name.toLowerCase().equals("list")){
-            	if(checkPermission(player, "RSC.list")||checkPermission(player, "RSC.*"))
-            		PLAYERlistRSC(player);
+            	if(pc.has(player, "RSC.list")||pc.has(player, "RSC.*"))
+            		playerListRSC(player);
             	else
-            		player.sendMessage(ChatColor.RED + getNoPermMsg());
+            		pc.sendNoPermMsg(player);
             }else if(name.toLowerCase().equals("delete")){
-            	if(checkPermission(player, "RSC.delete." + args[1])||checkPermission(player, "RSC.delete.*")||checkPermission(player, "RSC.*"))
+            	if(pc.has(player, "RSC.delete." + args[1])||pc.has(player, "RSC.delete.*")||pc.has(player, "RSC.*"))
             		deleteRSC(player, args[1]);
             	else
-            		player.sendMessage(ChatColor.RED + getNoPermMsg());
+            		pc.sendNoPermMsg(player);
             }else if(name.toLowerCase().equals("on")){
-            	if(checkPermission(player, "RSC.use." + args[1])||checkPermission(player, "RSC.use.*")||checkPermission(player, "RSC.*"))
+            	if(pc.has(player, "RSC.use." + args[1])||pc.has(player, "RSC.use.*")||pc.has(player, "RSC.*"))
             		rscON(player, args[1]);
             	else
-            		player.sendMessage(ChatColor.RED + getNoPermMsg());
+            		pc.sendNoPermMsg(player);
             }else if(name.toLowerCase().equals("off")){
-            	if(checkPermission(player, "RSC.use." + args[1])||checkPermission(player, "RSC.use.*")||checkPermission(player, "RSC.*"))
+            	if(pc.has(player, "RSC.use." + args[1])||pc.has(player, "RSC.use.*")||pc.has(player, "RSC.*"))
             		rscOFF(player, args[1]);
             	else
-            		player.sendMessage(ChatColor.RED + getNoPermMsg());
+            		pc.sendNoPermMsg(player);
             }else{
-            	if(checkPermission(player, "RSC.use." + args[0])||checkPermission(player, "RSC.use.*")||checkPermission(player, "RSC.*"))
+            	if(pc.has(player, "RSC.use." + args[0])||pc.has(player, "RSC.use.*")||pc.has(player, "RSC.*"))
             		toggleRSC(player, name);
             	else
-            		player.sendMessage(ChatColor.RED + getNoPermMsg());
+            		pc.sendNoPermMsg(player);
             }
         }
         return true;
-    }
-    public static String getNoPermMsg(){
-    	if(permissionsystem == 0)
-    		return "You aren't an OP!";
-    	else
-    		return "You don't have the necessary permission!";
-    }
-    public static boolean checkPermission(Player player, String perm){
-    	if(permissionsystem == 0){
-    		return player.isOp();
-    	}else if(permissionsystem == 1){
-    		return player.hasPermission(perm);
-    	}else if(permissionsystem == 2){
-    		return permissions.has(player, perm);
-    	}else{
-    		return false;
-    	}
     }
     // CONSOLE FUNCTIONS
 	public void toggleRSCc(final String name){
@@ -382,5 +367,6 @@ public class RedstoneCommand extends JavaPlugin{
         position.getBlock().setType(Material.AIR);
         System.out.println("[RSC]: Successfully turned off RSC named " + name);
     }
+    
 }
 

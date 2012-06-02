@@ -1,4 +1,10 @@
-package com.bukkit.HomerBond005.RedstoneCommand;
+/*
+ * Copyright HomerBond005
+ * 
+ *  Published under CC BY-NC-ND 3.0
+ *  http://creativecommons.org/licenses/by-nc-nd/3.0/
+ */
+package de.HomerBond005.RedstoneCommand;
 
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;

@@ -1,6 +1,6 @@
 name: RedstoneCommand
-main: com.bukkit.HomerBond005.RedstoneCommand.RedstoneCommand
-version: 2.6.7
+main: de.HomerBond005.RedstoneCommand.RedstoneCommand
+version: 2.7
 author: HomerBond005
 description: >
              RedstoneCommand
