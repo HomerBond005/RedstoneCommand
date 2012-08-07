@@ -6,367 +6,345 @@
  */
 package de.HomerBond005.RedstoneCommand;
 
-import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.bukkit.ChatColor;
-import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.mcstats.Metrics.Metrics;
-import de.HomerBond005.Permissions.PermissionsChecker;
 
 public class RedstoneCommand extends JavaPlugin{
-    private String mainDir = "plugins/RedstoneCommand";
-    private File locationsfile = new File(mainDir + File.separator + "Locations.yml");
-    private File configfile = new File(mainDir + File.separator + "config.yml");
-    private FileConfiguration config;
     private final RSCL blocklistener = new RSCL(this);
     PermissionsChecker pc;
     private Metrics metrics;
+    private Updater updater;
+    private Logger log;
+    private Map<String, RSC> rscs;
+    private boolean signPlaceDirectionModeEnabled;
+    
+    @Override
     public void onEnable(){
+    	log = getLogger();
         PluginManager pm = getServer().getPluginManager();
         pm.registerEvents(blocklistener, this);
-        (new File(mainDir)).mkdir();
-        config = YamlConfiguration.loadConfiguration(configfile);
-        if(!configfile.exists()){
-        	if(locationsfile.exists()){
-	    		locationsfile.renameTo(configfile);
-	    		System.out.println("[RedstoneCommand]: Locations.yml renamed to config.yml.");
-	    	}else{
-	            try
-	            {
-	                String root = "RedstoneCommands.Locations";
-	                configfile.createNewFile();
-	                config.set(root, "{}");
-	                config.set("RedstoneCommands.permissionsEnabled", 0);
-	                config.save(configfile);
-	                System.out.println("[RedstoneCommand]: config.yml created.");
-	            }
-	            catch(IOException e)
-	            {
-	                e.printStackTrace();
-	            }
-	    	}
-        }
-        try {
-			config.load(configfile);
-		} catch (Exception e){}
-    	try{
-    		int permEn = config.getInt("RedstoneCommands.permissionsEnabled", 2);
-    		if(permEn == 2){
-    			System.out.println("[RedstoneCommand]: permissionsEnabled has a wrong value! Changing to 0");
-	    		config.set("RedstoneCommands.permissionsEnabled", 0);
-    		}
-    	}catch(NullPointerException e){
-    		config.set("RedstoneCommands.permissionsEnabled", 0);
-    		System.out.println("[RedstoneCommand]: Update to v2.5. To enable permissions, change permissionsEnabled to 1.");
-    	}
-    	try {
-			config.save(configfile);
-		}catch(IOException e){
+        getConfig().addDefault("RedstoneCommands.Locations", new HashMap<String, Object>());
+        getConfig().addDefault("RedstoneCommands.permissionsEnabled", true);
+        getConfig().addDefault("RedstoneCommands.signPlaceDirectionModeEnabled", true);
+        getConfig().options().copyDefaults(true);
+        saveConfig();
+	    reloadConfig();
+		if(!getConfig().isBoolean("RedstoneCommands.permissionsEnabled")){
+    		getConfig().set("RedstoneCommands.permissionsEnabled", true);
 		}
-    	if(config.getInt("RedstoneCommands.permissionsEnabled", 2) == 1){
-    		pc = new PermissionsChecker(this, true);
-    	}else{
-    		pc = new PermissionsChecker(this, false);
-    	}
-        System.out.println("[RedstoneCommand]: config.yml loaded.");
+    	saveConfig();
+    	pc = new PermissionsChecker(this, getConfig().getBoolean("RedstoneCommands.permissionsEnabled", true));
+    	signPlaceDirectionModeEnabled = getConfig().getBoolean("RedstoneCommands.signPlaceDirectionModeEnabled");
+    	reloadRSCs();
+    	log.log(Level.INFO, "config.yml loaded.");
         try{
         	metrics = new Metrics(this);
         	metrics.start();
         }catch(IOException e){
-        	System.err.println("[RedstoneCommand]: Error while enabling Metrics.");
+        	log.log(Level.WARNING, "Error while enabling Metrics.");
         }
-        System.out.println("[RedstoneCommand] is enabled!");
-    }
-    public void onDisable(){
-        System.out.println("[RedstoneCommand] is disabled!");
-    }
-    private void deleteRSC(Player player, String name){
-        if(name != null){
-            if(config.getString("RedstoneCommands.Locations." + name) != null){
-                int x = config.getInt("RedstoneCommands.Locations." + name + ".X");
-                int y = config.getInt("RedstoneCommands.Locations." + name + ".Y");
-                int z = config.getInt("RedstoneCommands.Locations." + name + ".Z");
-                World world = getServer().getWorld(config.getString("RedstoneCommands.Locations." + name + ".WORLD"));
-                config.set("RedstoneCommands.Locations." + name, null);
-                Location torchposition = new Location(world, x - 1, y, z);
-                Location signposition = new Location(world, x, y, z);
-                signposition.getChunk().load();
-                torchposition.getChunk().load();
-                signposition.getBlock().setType(Material.AIR);
-                torchposition.getBlock().setType(Material.AIR);
-                try{
-					config.save(configfile);
-				}catch(IOException e){
-				}
-                player.sendMessage((new StringBuilder()).append(ChatColor.GREEN).append("Successfully deleted RSC ").append(ChatColor.GOLD).append(name).toString());
-            } else{
-                player.sendMessage((new StringBuilder()).append(ChatColor.RED).append("The RSC ").append(ChatColor.GOLD).append(name).append(ChatColor.RED).append(" doesn's exist.").toString());
-            }
-        }else{
-            player.sendMessage((new StringBuilder()).append(ChatColor.RED).append("Wrong syntax! Try: /rsc delete [name]").toString());
-        }
-    }
-    private void toggleRSC(final Player player, final String name){
-        if(config.getString("RedstoneCommands.Locations." + name) == null){
-        	player.sendMessage(ChatColor.RED + "The following RSC doesn't exist: " + ChatColor.GOLD + name);
-        	  return;
-        }
-        int x = config.getInt("RedstoneCommands.Locations." + name + ".X");
-        int y = config.getInt("RedstoneCommands.Locations." + name + ".Y");
-        int z = config.getInt("RedstoneCommands.Locations." + name + ".Z");
-        World world = getServer().getWorld(config.getString("RedstoneCommands.Locations." + name + ".WORLD"));
-        final Location position = new Location(world, x - 1, y, z);
-        if(position.getBlock().getType() == Material.REDSTONE_TORCH_ON){
-        	position.getChunk().load();
-            position.getBlock().setType(Material.AIR);
-            player.sendMessage(ChatColor.GREEN + "Successfully toggled RSC named " + ChatColor.GOLD + name);
-        }else{
-        	getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
-				@Override
-				public void run(){
-					if(config.getInt("RedstoneCommands.Locations." + name + ".DELAY", 0) != 0){
-						position.getChunk().load();
-	    				position.getBlock().setType(Material.AIR);
-	    				player.sendMessage(ChatColor.GREEN + "Successfully delayed RSC named " + ChatColor.GOLD + name);
-					}else{
-		            	player.sendMessage(ChatColor.GREEN + "Successfully toggled RSC named " + ChatColor.GOLD + name);
-		            }
-				}
-			}, 20L*config.getInt("RedstoneCommands.Locations." + name + ".DELAY", 0));
-        	position.getBlock().setType(Material.REDSTONE_TORCH_ON);
-        }
-    }
-    private void rscON(Player player, final String name){
-        if(config.getString("RedstoneCommands.Locations." + name) == null){
-        	player.sendMessage(ChatColor.RED + "The following RSC doesn't exist: " + ChatColor.GOLD + name);
-        	  return;
-        }
-        int x = config.getInt("RedstoneCommands.Locations." + name + ".X");
-        int y = config.getInt("RedstoneCommands.Locations." + name + ".Y");
-        int z = config.getInt("RedstoneCommands.Locations." + name + ".Z");
-        World world = getServer().getWorld(config.getString("RedstoneCommands.Locations." + name + ".WORLD"));
-        final Location position = new Location(world, x - 1, y, z);
-        position.getChunk().load();
-        position.getBlock().setType(Material.REDSTONE_TORCH_ON);
-    	player.sendMessage(ChatColor.GREEN + "Successfully turned on RSC named " + ChatColor.GOLD + name);
-    }
-    private void rscOFF(Player player, final String name){
-        if(config.getString("RedstoneCommands.Locations." + name) == null){
-        	  player.sendMessage(ChatColor.RED + "The following RSC doesn't exist: " + ChatColor.GOLD + name);
-        	  return;
-        }
-        int x = config.getInt("RedstoneCommands.Locations." + name + ".X");
-        int y = config.getInt("RedstoneCommands.Locations." + name + ".Y");
-        int z = config.getInt("RedstoneCommands.Locations." + name + ".Z");
-        World world = getServer().getWorld(config.getString("RedstoneCommands.Locations." + name + ".WORLD"));
-        final Location position = new Location(world, x - 1, y, z);
-        position.getChunk().load();
-        position.getBlock().setType(Material.AIR);
-        player.sendMessage(ChatColor.GREEN + "Successfully turned off RSC named " + ChatColor.GOLD + name);
-    }
-    private String[] listRSC(){
-        Object[] rscs = config.getConfigurationSection("RedstoneCommands.Locations").getKeys(false).toArray();
-        String[] rscs2 = new String[rscs.length];
-        for(int i = 0; i < rscs.length; i++){
-        	rscs2[i] = rscs[i].toString();
-        }
-        return rscs2;
-    }
-    private void playerListRSC(Player player){
-        player.sendMessage(ChatColor.GREEN + "Following RSCs are set:");
-        String rscsstring = "";
-        if(listRSC().length == 0){
-        	player.sendMessage(ChatColor.GRAY + "No RSCs are set.");
-        	return;
-        }
-        for(int i = 0; i < listRSC().length; i++){
-            if(i + 1 == listRSC().length)
-                rscsstring += listRSC()[i];
-            else
-                rscsstring += listRSC()[i] + ", ";
-        }
-        player.sendMessage(ChatColor.GOLD + rscsstring);
-    }
-    public boolean onCommand(CommandSender sender, Command command, String commandLabel, String args[]){
-    	Player player = null;
-    	try{
-    		player = (Player)sender;
-    	}catch(ClassCastException e){
-    		ConsoleHandler handler = new ConsoleHandler(this);
-    		try {
-				config.load(configfile);
-			}catch(Exception e1){
-			}
-    		handler.handleConsole(sender, command, args);
-    		return true;
-    	}
-    	try{
-    		@SuppressWarnings("unused")
-			String test = args[0];
-    	}catch(IndexOutOfBoundsException e){
-    		player.sendMessage((new StringBuilder()).append(ChatColor.RED).append("-----RSC Help-----").toString());
-            player.sendMessage((new StringBuilder()).append(ChatColor.RED).append("/rsc [name]  ").append(ChatColor.GREEN).append("Toggles Redstone.").toString());
-            player.sendMessage((new StringBuilder()).append(ChatColor.RED).append("/rsc list  ").append(ChatColor.GREEN).append("Shows all RSCs.").toString());
-            player.sendMessage((new StringBuilder()).append(ChatColor.RED).append("/rsc delete [name]   ").append(ChatColor.GREEN).append("Deletes a RSC entry.").toString());
-            player.sendMessage((new StringBuilder()).append(ChatColor.RED).append("/rsc on [name]   ").append(ChatColor.GREEN).append("Turn on a RSC.").toString());
-            player.sendMessage((new StringBuilder()).append(ChatColor.RED).append("/rsc off [name]   ").append(ChatColor.GREEN).append("Turn off a RSC.").toString());
-            player.sendMessage((new StringBuilder()).append(ChatColor.RED).append("/rsc help   ").append(ChatColor.GREEN).append("Shows this page.").toString());
-            return true;
-    	}
-        if(args[0].toLowerCase().equals("help")){
-            player.sendMessage((new StringBuilder()).append(ChatColor.RED).append("-----RSC Help-----").toString());
-            player.sendMessage((new StringBuilder()).append(ChatColor.RED).append("/rsc [name]  ").append(ChatColor.GREEN).append("Toggles Redstone.").toString());
-            player.sendMessage((new StringBuilder()).append(ChatColor.RED).append("/rsc list  ").append(ChatColor.GREEN).append("Shows all RSCs.").toString());
-            player.sendMessage((new StringBuilder()).append(ChatColor.RED).append("/rsc delete [name]   ").append(ChatColor.GREEN).append("Deletes a RSC entry.").toString());
-            player.sendMessage((new StringBuilder()).append(ChatColor.RED).append("/rsc on [name]   ").append(ChatColor.GREEN).append("Turn on a RSC.").toString());
-            player.sendMessage((new StringBuilder()).append(ChatColor.RED).append("/rsc off [name]   ").append(ChatColor.GREEN).append("Turn off a RSC.").toString());
-            player.sendMessage((new StringBuilder()).append(ChatColor.RED).append("/rsc help   ").append(ChatColor.GREEN).append("Shows this page.").toString());
-            return true;
-        }
-        String name = args[0];
-        if(command.getName().toLowerCase().equals("rsc")){
-        	try{
-        		config.load(configfile);
-        	}catch(Exception e){}
-            if(name.toLowerCase().equals("list")){
-            	if(pc.has(player, "RSC.list")||pc.has(player, "RSC.*"))
-            		playerListRSC(player);
-            	else
-            		pc.sendNoPermMsg(player);
-            }else if(name.toLowerCase().equals("delete")){
-            	if(pc.has(player, "RSC.delete." + args[1])||pc.has(player, "RSC.delete.*")||pc.has(player, "RSC.*"))
-            		deleteRSC(player, args[1]);
-            	else
-            		pc.sendNoPermMsg(player);
-            }else if(name.toLowerCase().equals("on")){
-            	if(pc.has(player, "RSC.use." + args[1])||pc.has(player, "RSC.use.*")||pc.has(player, "RSC.*"))
-            		rscON(player, args[1]);
-            	else
-            		pc.sendNoPermMsg(player);
-            }else if(name.toLowerCase().equals("off")){
-            	if(pc.has(player, "RSC.use." + args[1])||pc.has(player, "RSC.use.*")||pc.has(player, "RSC.*"))
-            		rscOFF(player, args[1]);
-            	else
-            		pc.sendNoPermMsg(player);
-            }else{
-            	if(pc.has(player, "RSC.use." + args[0])||pc.has(player, "RSC.use.*")||pc.has(player, "RSC.*"))
-            		toggleRSC(player, name);
-            	else
-            		pc.sendNoPermMsg(player);
-            }
-        }
-        return true;
-    }
-    // CONSOLE FUNCTIONS
-	public void toggleRSCc(final String name){
-        if(config.getString("RedstoneCommands.Locations." + name) == null){
-        	  System.out.println("[RSC]: The following RSC doesn't exist: " + name);
-        	  return;
-        }
-        int x = config.getInt("RedstoneCommands.Locations." + name + ".X");
-        int y = config.getInt("RedstoneCommands.Locations." + name + ".Y");
-        int z = config.getInt("RedstoneCommands.Locations." + name + ".Z");
-        World world = getServer().getWorld(config.getString("RedstoneCommands.Locations." + name + ".WORLD"));
-        final Location position = new Location(world, x - 1, y, z);
-        if(position.getBlock().getType() == Material.REDSTONE_TORCH_ON){
-        	position.getChunk().load();
-            position.getBlock().setType(Material.AIR);
-            System.out.println("[RSC]: Successfully toggled RSC named " + name);
-        }else{
-        	getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
-				@Override
-				public void run(){
-					if(config.getInt("RedstoneCommands.Locations." + name + ".DELAY", 0) != 0){
-						position.getChunk().load();
-	    				position.getBlock().setType(Material.AIR);
-	    				System.out.println("[RSC]: Successfully delayed RSC named " + name);
-					}else{
-						System.out.println("[RSC]: Successfully toggled RSC named " + name);
-		            }
-				}
-			}, 20L*config.getInt("RedstoneCommands.Locations." + name + ".DELAY", 0));
-        	position.getBlock().setType(Material.REDSTONE_TORCH_ON);
-        }
-    }
-    public void deleteRSCc(String name){
-        if(name != null){
-            if(config.getString("RedstoneCommands.Locations." + name) != null){
-            	int x = config.getInt("RedstoneCommands.Locations." + name + ".X");
-                int y = config.getInt("RedstoneCommands.Locations." + name + ".Y");
-                int z = config.getInt("RedstoneCommands.Locations." + name + ".Z");
-                World world = getServer().getWorld(config.getString("RedstoneCommands.Locations." + name + ".WORLD"));
-                config.set("RedstoneCommands.Locations." + name, null);
-                Location torchposition = new Location(world, x - 1, y, z);
-                Location signposition = new Location(world, x, y, z);
-                signposition.getChunk().load();
-                torchposition.getChunk().load();
-                signposition.getBlock().setType(Material.AIR);
-                torchposition.getBlock().setType(Material.AIR);
-                try{
-                	config.save(configfile);
-                }catch(Exception e){
-                }
-                System.out.println("[RSC]: Successfully deleted RSC " + name);
-            }else{
-                System.out.println("[RSC]: The RSC " + name + " doesn's exist.");
-            }
-        } else{
-            System.out.println("[RSC]: Wrong syntax! Try: /rsc delete [name]");
-        }
-    }
-    public void listRSCc()
-    {
-       	System.out.println("[RSC]: Following RSCs are set:");
-        String rscsstring = "";
-        if(listRSC().length == 0){
-            System.out.println("[RSC]: No RSCs are set.");
-            return;
-        }
-        for(int i = 0; i < listRSC().length; i++){
-            if(i + 1 == listRSC().length)
-                rscsstring += listRSC()[i];
-            else
-                rscsstring += listRSC()[i] + ", ";
-        }
-        System.out.println("[RSC]: " + rscsstring);
-    }
-    public void rscONc(final String name){
-        if(config.getString("RedstoneCommands.Locations." + name) == null){
-        	System.out.println("[RSC]: The following RSC doesn't exist: " + name);
-        	  return;
-        }
-        int x = config.getInt("RedstoneCommands.Locations." + name + ".X");
-        int y = config.getInt("RedstoneCommands.Locations." + name + ".Y");
-        int z = config.getInt("RedstoneCommands.Locations." + name + ".Z");
-        World world = getServer().getWorld(config.getString("RedstoneCommands.Locations." + name + ".WORLD"));
-        final Location position = new Location(world, x - 1, y, z);
-        position.getChunk().load();
-        position.getBlock().setType(Material.REDSTONE_TORCH_ON);
-    	System.out.println("[RSC]: Successfully turned on RSC named " + name);
-    }
-    public void rscOFFc(final String name){
-        if(config.getString("RedstoneCommands.Locations." + name) == null){
-        	System.out.println("[RSC]: The following RSC doesn't exist: " + name);
-        	  return;
-        }
-        int x = config.getInt("RedstoneCommands.Locations." + name + ".X");
-        int y = config.getInt("RedstoneCommands.Locations." + name + ".Y");
-        int z = config.getInt("RedstoneCommands.Locations." + name + ".Z");
-        World world = getServer().getWorld(config.getString("RedstoneCommands.Locations." + name + ".WORLD"));
-        final Location position = new Location(world, x - 1, y, z);
-        position.getChunk().load();
-        position.getBlock().setType(Material.AIR);
-        System.out.println("[RSC]: Successfully turned off RSC named " + name);
+        updater = new Updater(this);
+		getServer().getPluginManager().registerEvents(updater, this);
+		log.log(Level.INFO, "is enabled!");
     }
     
+    @Override
+    public void onDisable(){
+    	log.log(Level.INFO, "is disabled!");
+    }
+    
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String commandLabel, String args[]){
+    	if(command.getName().toLowerCase().equals("rsc")){
+        	if(args.length == 0)
+        		args = new String[]{"help"};
+    		if(sender instanceof Player){
+    			Player player = (Player)sender;
+            	if(args[0].toLowerCase().equals("help")){
+                    player.sendMessage(ChatColor.RED+"-----RSC Help-----");
+                    player.sendMessage(ChatColor.RED+"/rsc [name]  "+ChatColor.GREEN+"Toggles Redstone.");
+                    player.sendMessage(ChatColor.RED+"/rsc list  "+ChatColor.GREEN+"Shows all RSCs.");
+                    player.sendMessage(ChatColor.RED+"/rsc delete [name]   "+ChatColor.GREEN+"Deletes a RSC entry.");
+                    player.sendMessage(ChatColor.RED+"/rsc on [name]   "+ChatColor.GREEN+"Turn on a RSC.");
+                    player.sendMessage(ChatColor.RED+"/rsc off [name]   "+ChatColor.GREEN+"Turn off a RSC.");
+                    player.sendMessage(ChatColor.RED+"/rsc showmsg [name] [bool]   "+ChatColor.GREEN+"Toggle display of messages.");
+                    player.sendMessage(ChatColor.RED+"/rsc help   "+ChatColor.GREEN+"Shows this page.");
+                    return true;
+                }else if(args[0].toLowerCase().equals("list")){
+                	if(pc.has(player, "RSC.list")||pc.has(player, "RSC.*")){
+                		listRSC(sender);
+                	}else
+                		pc.sendNoPermMsg(player);
+                }else if(args[0].toLowerCase().equals("delete")){
+                	if(args.length == 2)
+	                	if(pc.has(player, "RSC.delete."+args[1])||pc.has(player, "RSC.delete.*")||pc.has(player, "RSC.*"))
+	                		player.sendMessage(deleteRSC(args[1]));
+	                	else
+	                		pc.sendNoPermMsg(player);
+                	else
+            			player.sendMessage(ChatColor.RED+"Wrong arguments! Usage: /rsc delete <name>");
+                }else if(args[0].toLowerCase().equals("on")){
+                	if(args.length == 2)
+	                	if(pc.has(player, "RSC.use."+args[1])||pc.has(player, "RSC.use.*")||pc.has(player, "RSC.*"))
+	                		sendMessageToSender(sender, args[1], turnRSCon(args[1]));
+	                	else
+	                		pc.sendNoPermMsg(player);
+                	else
+            			player.sendMessage(ChatColor.RED+"Wrong arguments! Usage: /rsc on <name>");
+                }else if(args[0].toLowerCase().equals("off")){
+                	if(args.length == 2)
+	                	if(pc.has(player, "RSC.use."+args[1])||pc.has(player, "RSC.use.*")||pc.has(player, "RSC.*"))
+	                		sendMessageToSender(sender, args[1], turnRSCoff(args[1]));
+	                	else
+	                		pc.sendNoPermMsg(player);
+                	else
+            			player.sendMessage(ChatColor.RED+"Wrong arguments! Usage: /rsc off <name>");
+                }else if(args[0].toLowerCase().equals("showmsg")){
+                	if(args.length == 3)
+	                	if(pc.has(player, "RSC.setmsg."+args[1])||pc.has(player, "RSC.setmsg.*")||pc.has(player, "RSC.*"))
+	                			player.sendMessage(setMsg(args[1], args[2]));
+	                	else
+	                		pc.sendNoPermMsg(player);
+                	else
+            			player.sendMessage(ChatColor.RED+"Wrong arguments! Usage: /rsc showmsg <name> <boolean>");
+                }else{
+                	if(pc.has(player, "RSC.use."+args[0])||pc.has(player, "RSC.use.*")||pc.has(player, "RSC.*"))
+                		toggleRSC(args[0], sender);
+                	else
+                		pc.sendNoPermMsg(player);
+                }
+    		}else{
+	    	    if(args[0].toLowerCase().equals("help")){
+	    	    	sender.sendMessage(ChatColor.RED+"-----RSC Help-----");
+                    sender.sendMessage(ChatColor.RED+"rsc [name]  "+ChatColor.GREEN+"Toggles Redstone.");
+                    sender.sendMessage(ChatColor.RED+"rsc list  "+ChatColor.GREEN+"Shows all RSCs.");
+                    sender.sendMessage(ChatColor.RED+"rsc delete [name]   "+ChatColor.GREEN+"Deletes a RSC entry.");
+                    sender.sendMessage(ChatColor.RED+"rsc on [name]   "+ChatColor.GREEN+"Turn on a RSC.");
+                    sender.sendMessage(ChatColor.RED+"rsc off [name]   "+ChatColor.GREEN+"Turn off a RSC.");
+                    sender.sendMessage(ChatColor.RED+"rsc showmsg [name] [bool]   "+ChatColor.GREEN+"Toggle display of messages.");
+                    sender.sendMessage(ChatColor.RED+"rsc help   "+ChatColor.GREEN+"Shows this page.");
+	    			return true;
+	    	    }else if(args[0].toLowerCase().equalsIgnoreCase("list")){
+	    	    	listRSC(sender);
+    	        }else if(args[0].toLowerCase().equalsIgnoreCase("delete")){
+    	        	if(args.length == 2)
+    	        		sender.sendMessage(deleteRSC(args[1]));
+    	        	else
+    	        		sender.sendMessage(ChatColor.RED+"Wrong arguments! Usage: rsc delete <name>");
+    	        }else if(args[0].toLowerCase().equalsIgnoreCase("on")){
+    	        	if(args.length == 2)
+    	        		sendMessageToSender(sender, args[1], turnRSCon(args[1]));
+    	        	else
+    	        		sender.sendMessage(ChatColor.RED+"Wrong arguments! Usage: rsc on <name>");
+    	        }else if(args[0].toLowerCase().equalsIgnoreCase("off")){
+    	        	if(args.length == 2)
+    	        		sendMessageToSender(sender, args[1], turnRSCoff(args[1]));
+    	        	else
+    	        		sender.sendMessage(ChatColor.RED+"Wrong arguments! Usage: rsc off <name>");
+    	        }else if(args[0].toLowerCase().equalsIgnoreCase("showmsg")){
+    	        	if(args.length == 3)
+    	        		sender.sendMessage(setMsg(args[1], args[2]));
+    	        	else
+    	        		sender.sendMessage(ChatColor.RED+"Wrong arguments! Usage: rsc showmsg <name> <value>");
+    	        }else{
+    	        	toggleRSC(args[0], sender);
+    	        }
+    		}
+    	}
+        return true;
+    }
+    
+    /**
+     * Set the message that is displayed if a RSC is used
+     * @param name The name of the RSC
+     * @param valueAsString The message that should be set
+     * @return An answer that could be sent to the CommandSender
+     */
+    private String setMsg(String name, String valueAsString){
+    	name = name.toLowerCase();
+        if(!rscs.containsKey(name)){
+        	return ChatColor.RED+"The following RSC doesn't exist: "+ChatColor.GOLD+name;
+        }
+        getConfig().set("RedstoneCommands.Locations." + name + ".MSG", Boolean.parseBoolean(valueAsString));
+    	saveConfig();
+    	reloadRSCs();
+        if(Boolean.parseBoolean(valueAsString)){
+    		return ChatColor.GREEN+"Messages will be displayed when using the RSC "+ChatColor.GOLD+name;
+    	}else{
+    		return ChatColor.GREEN+"Messages will not be displayed when using the RSC "+ChatColor.GOLD+name;
+    	}
+	}
+
+    /**
+     * Turn on a RSC
+     * @param name The name of the RSC
+     * @return An answer that could be sent to the CommandSender
+     */
+	public String turnRSCon(String name){
+    	name = name.toLowerCase();
+        if(!rscs.containsKey(name)){
+        	return ChatColor.RED+"The following RSC doesn't exist: "+ChatColor.GOLD+name;
+        }
+        RSC rsc = rscs.get(name);
+        if(rsc.isON())
+        	return ChatColor.GREEN+"The RSC "+ChatColor.GOLD+name+ChatColor.GREEN+" is already on.";
+        rsc.turnON();
+    	return ChatColor.GREEN+"Successfully turned on RSC named "+ChatColor.GOLD+name;
+    }
+    
+	/**
+     * Turn off a RSC
+     * @param name The name of the RSC
+     * @return An answer that could be sent to the CommandSender
+     */
+    public String turnRSCoff(String name){
+    	name = name.toLowerCase();
+        if(!rscs.containsKey(name)){
+        	return ChatColor.RED+"The following RSC doesn't exist: "+ChatColor.GOLD+name;
+        }
+        RSC rsc = rscs.get(name);
+        if(!rsc.isON())
+        	return ChatColor.GREEN+"The RSC "+ChatColor.GOLD+name+ChatColor.GREEN+" is already off.";
+        rsc.turnOFF();
+        return ChatColor.GREEN+"Successfully turned off RSC named "+ChatColor.GOLD+name;
+    }
+    
+    /**
+     * Delete a RSC
+     * @param name The name of the RSC
+     * @return An answer that could be sent to the CommandSender
+     */
+    public String deleteRSC(String name){
+    	name = name.toLowerCase();
+        if(!rscs.containsKey(name)){
+        	return ChatColor.RED+"The following RSC doesn't exist: "+ChatColor.GOLD+name;
+        }
+        RSC rsc = rscs.get(name);
+        getConfig().set("RedstoneCommands.Locations."+rsc.getName()+".X", null);
+        getConfig().set("RedstoneCommands.Locations."+rsc.getName()+".Y", null);
+        getConfig().set("RedstoneCommands.Locations."+rsc.getName()+".Z", null);
+        getConfig().set("RedstoneCommands.Locations."+rsc.getName()+".Xchange", null);
+        getConfig().set("RedstoneCommands.Locations."+rsc.getName()+".Ychange", null);
+        getConfig().set("RedstoneCommands.Locations."+rsc.getName()+".Zchange", null);
+        getConfig().set("RedstoneCommands.Locations."+rsc.getName()+".WORLD", null);
+        getConfig().set("RedstoneCommands.Locations."+rsc.getName()+".MSG", null);
+        getConfig().set("RedstoneCommands.Locations."+rsc.getName()+".DELAY", null);
+        getConfig().set("RedstoneCommands.Locations."+name, null);
+        getConfig().options().copyDefaults(false);
+        saveConfig();
+        rsc.turnOFF();
+        rsc.getSignLocation().getBlock().setType(Material.AIR);
+        reloadRSCs();
+        return ChatColor.GREEN+"Successfully deleted the RSC "+ChatColor.GOLD+name;
+    }
+    
+    /**
+     * List all defined RSCs
+     * @param sender The CommandSender that executed the list command
+     */
+    public void listRSC(CommandSender sender){
+    	sender.sendMessage(ChatColor.GREEN+"The following RSCs are set:");
+        if(rscs.size() == 0){
+        	sender.sendMessage(ChatColor.GRAY+"No RSCs are set.");
+        }
+        String rscsstring = "";
+        for(String rsc : rscs.keySet())
+        	rscsstring += rsc+ ", ";
+        if(rscsstring.length() != 0)
+        	rscsstring = rscsstring.substring(0, rscsstring.length()-2);
+        sender.sendMessage(ChatColor.GOLD+rscsstring);
+    }
+    
+    /**
+     * Toggle a RSC
+     * @param name The name of the RSC
+     * @param sender The CommandSender that executed the toggle command
+     */
+    public void toggleRSC(String name, final CommandSender sender){
+    	name = name.toLowerCase();
+        if(!rscs.containsKey(name)){
+        	sendMessageToSender(sender, name, ChatColor.RED+"The following RSC doesn't exist: "+ChatColor.GOLD+name);
+        	return;
+        }
+        final RSC rsc = rscs.get(name);
+        if(rsc.isON()){
+        	rsc.turnOFF();
+        	sendMessageToSender(sender, rsc.getName(), ChatColor.GREEN+"Successfully turned off RSC named "+ChatColor.GOLD+name);
+        }else{
+        	getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+				@Override
+				public void run(){
+					if(rsc.getDelay() != 0){
+						rsc.turnOFF();
+						sendMessageToSender(sender, rsc.getName(), ChatColor.GREEN+"Successfully delayed RSC named "+ChatColor.GOLD+rsc.getName());
+					}else{
+						sendMessageToSender(sender, rsc.getName(), ChatColor.GREEN+"Successfully turned on RSC named "+ChatColor.GOLD+rsc.getName());
+		            }
+				}
+			}, 20L*rsc.getDelay());
+        	rsc.turnON();
+        }
+    }
+    
+    /**
+     * Reload all RSCs from the config
+     */
+    public void reloadRSCs(){
+    	reloadConfig();
+    	rscs = new HashMap<String, RSC>();
+    	ConfigurationSection sec = getConfig().getConfigurationSection("RedstoneCommands.Locations");
+    	Set<String> rscnames = sec.getKeys(false);
+    	for(String name : rscnames){
+    		getConfig().addDefault("RedstoneCommands.Locations."+name+".Xchange", -1);
+    		getConfig().addDefault("RedstoneCommands.Locations."+name+".Ychange", 0);
+    		getConfig().addDefault("RedstoneCommands.Locations."+name+".Zchange", 0);
+    		getConfig().addDefault("RedstoneCommands.Locations."+name+".X", 0);
+    		getConfig().addDefault("RedstoneCommands.Locations."+name+".Y", 0);
+    		getConfig().addDefault("RedstoneCommands.Locations."+name+".Z", 0);
+    		getConfig().addDefault("RedstoneCommands.Locations."+name+".WORLD", "world");
+    		getConfig().addDefault("RedstoneCommands.Locations."+name+".DELAY", 0);
+    		getConfig().addDefault("RedstoneCommands.Locations."+name+".MSG", true);
+    		getConfig().options().copyDefaults(true);
+    		saveConfig();
+    		ConfigurationSection rsc = sec.getConfigurationSection(name);
+    		rscs.put(name.toLowerCase(), new RSC(name, rsc.getInt("X"), rsc.getInt("Y"), rsc.getInt("Z"), getServer().getWorld(rsc.getString("WORLD")), rsc.getInt("DELAY"), rsc.getInt("Xchange"), rsc.getInt("Ychange"), rsc.getInt("Zchange"), rsc.getBoolean("MSG")));
+    	}
+    }
+    
+    /**
+     * Transfer a message to a CommandSender
+     * @param sender The CommandSender that should receive the message
+     * @param rsc The name of the RSC that
+     * @param msg The message that should be transfered
+     */
+    private void sendMessageToSender(CommandSender sender, String rsc, String msg){
+    	rsc = rsc.toLowerCase();
+        if(!rscs.containsKey(rsc)){
+        	sender.sendMessage(msg);
+        }else{
+        	if(rscs.get(rsc).displayMessages())
+        		sender.sendMessage(msg);
+        }
+    }
+    
+    /**
+     * Check if the signPlaceDirectionMode is enabled
+     * @return A boolean
+     */
+    public boolean getSignPlaceDirectionModeEnabled(){
+    	return signPlaceDirectionModeEnabled;
+    }
 }
 

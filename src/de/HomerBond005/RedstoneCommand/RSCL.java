@@ -6,14 +6,9 @@
  */
 package de.HomerBond005.RedstoneCommand;
 
-import java.io.File;
-import java.io.FileInputStream;
-
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.block.*;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -23,13 +18,8 @@ import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.inventory.ItemStack;
 
 public class RSCL implements Listener{
-    static String mainDir = "plugins/RedstoneCommand";
-    static File configfile = new File(mainDir + File.separator + "config.yml");
-    FileInputStream LocationsInput;
-    public FileConfiguration config;
     public static RedstoneCommand plugin;
     public RSCL(RedstoneCommand redstoneCommand){
-        config = YamlConfiguration.loadConfiguration(configfile);
         plugin = redstoneCommand;
     }
     @EventHandler(priority = EventPriority.HIGH)
@@ -44,9 +34,7 @@ public class RSCL implements Listener{
     }
     @EventHandler(priority = EventPriority.HIGH)
 	public void onSignChange(SignChangeEvent event){
-    	try{
-    		config.load(configfile);
-    	}catch(Exception e){}
+    	plugin.reloadConfig();
         Player player = event.getPlayer();
         BlockState state = event.getBlock().getState();
         if(state instanceof Sign){
@@ -60,7 +48,7 @@ public class RSCL implements Listener{
                     });
                     return;
 	            }
-	            if(config.getString("RedstoneCommands.Locations." + event.getLine(1)) != null){
+	            if(plugin.getConfig().getString("RedstoneCommands.Locations." + event.getLine(1)) != null){
                     player.sendMessage(ChatColor.RED + "The RSC " + ChatColor.GOLD + event.getLine(1) + ChatColor.RED + " already exists.");
                     event.getBlock().setType(Material.AIR);
                     ItemStack signpost = new ItemStack(323, 1);
@@ -69,30 +57,81 @@ public class RSCL implements Listener{
                     });
                     return;
                 }
-                event.getBlock().getWorld().getBlockAt(event.getBlock().getLocation().add(-1, 0, 0)).setType(Material.REDSTONE_TORCH_ON);
-                try {
-					config.load(configfile);
-				}catch(Exception e){}
-                config.set("RedstoneCommands.Locations." + event.getLine(1) + ".X", Integer.valueOf(event.getBlock().getX()));
-                config.set("RedstoneCommands.Locations." + event.getLine(1) + ".Y", Integer.valueOf(event.getBlock().getY()));
-                config.set("RedstoneCommands.Locations." + event.getLine(1) + ".Z", Integer.valueOf(event.getBlock().getZ()));
-                config.set("RedstoneCommands.Locations." + event.getLine(1) + ".WORLD", event.getBlock().getWorld().getName());
-            	int thirdline = 0;
+                plugin.reloadConfig();
+            	int delay = 0;
             	try{
-            		thirdline = Integer.parseInt(event.getLine(2));
+            		delay = Integer.parseInt(event.getLine(2));
             	}catch(NumberFormatException error){
             		if(!event.getLine(2).isEmpty()){
             			player.sendMessage(ChatColor.GOLD + event.getLine(2) + ChatColor.RED + " is not a number! Saved with a delay of 0 sec.");
             		}
             		event.setLine(2, "0");
             	}
-            	if(thirdline != 0){
-            		event.getBlock().getWorld().getBlockAt(event.getBlock().getLocation().add(-1, 0, 0)).setType(Material.AIR);
+            	BlockFace direction;
+            	if(!event.getLine(3).isEmpty()){
+            		try{
+            			direction = BlockFace.valueOf(event.getLine(3).toUpperCase());
+            		}catch(IllegalArgumentException e){
+            			player.sendMessage(ChatColor.RED+"Wrong torch direction!");
+            			player.sendMessage(ChatColor.RED+"Possible values are: NORTH, EAST, SOUTH, WEST, UP, DOWN, NORTH_EAST, NORTH_WEST, SOUTH_EAST, SOUTH_WEST");
+            			event.getBlock().setType(Material.AIR);
+                        player.getInventory().addItem(new ItemStack[] {
+                        	new ItemStack(323, 1)
+                        });
+            			return;
+            		}
+            	}else if(plugin.getSignPlaceDirectionModeEnabled()){
+            		byte signdata = event.getBlock().getData();
+            		if(event.getBlock().getState().getType() == Material.WALL_SIGN){
+            			if(signdata == 4)
+            				direction = BlockFace.NORTH;
+            			else if(signdata == 2)
+            				direction = BlockFace.EAST;
+            			else if(signdata == 5)
+            				direction = BlockFace.SOUTH;
+            			else if(signdata == 3)
+            				direction = BlockFace.WEST;
+            			else
+            				direction = BlockFace.NORTH;
+            		}else{
+	            		if(signdata == 4)
+	            			direction = BlockFace.NORTH;
+	            		else if(signdata == 8)
+	            			direction = BlockFace.EAST;
+	            		else if(signdata == 12)
+	            			direction = BlockFace.SOUTH;
+	            		else if(signdata == 0)
+	            			direction = BlockFace.WEST;
+	            		else if(signdata > 0 && signdata < 4)
+	            			direction = BlockFace.NORTH_WEST;
+	            		else if(signdata > 4 && signdata < 8)
+	            			direction = BlockFace.NORTH_EAST;
+	            		else if(signdata > 8 && signdata < 12)
+	            			direction = BlockFace.SOUTH_EAST;
+	            		else if(signdata > 12)
+	            			direction = BlockFace.SOUTH_WEST;
+	            		else
+	            			direction = BlockFace.NORTH;
+            		}
+            	}else{
+            		direction = BlockFace.NORTH;
             	}
-            	config.set("RedstoneCommands.Locations." + event.getLine(1) + ".DELAY", thirdline);
-            	try{
-                	config.save(configfile);
-        		}catch(Exception e){}
+            	player.sendMessage(ChatColor.GREEN+"Redstone torch will be placed: "+direction);
+            	plugin.getConfig().set("RedstoneCommands.Locations." + event.getLine(1) + ".X", Integer.valueOf(event.getBlock().getX()));
+                plugin.getConfig().set("RedstoneCommands.Locations." + event.getLine(1) + ".Y", Integer.valueOf(event.getBlock().getY()));
+                plugin.getConfig().set("RedstoneCommands.Locations." + event.getLine(1) + ".Z", Integer.valueOf(event.getBlock().getZ()));
+                plugin.getConfig().set("RedstoneCommands.Locations." + event.getLine(1) + ".WORLD", event.getBlock().getWorld().getName());
+            	plugin.getConfig().set("RedstoneCommands.Locations." + event.getLine(1) + ".Xchange", direction.getModX());
+                plugin.getConfig().set("RedstoneCommands.Locations." + event.getLine(1) + ".Ychange", direction.getModY());
+                plugin.getConfig().set("RedstoneCommands.Locations." + event.getLine(1) + ".Zchange", direction.getModZ());
+                plugin.getConfig().set("RedstoneCommands.Locations." + event.getLine(1) + ".DELAY", delay);
+                if(delay != 0){
+            		event.getBlock().getWorld().getBlockAt(event.getBlock().getLocation().add(direction.getModX(), direction.getModY(), direction.getModZ())).setType(Material.AIR);
+            	}else{
+            		event.getBlock().getWorld().getBlockAt(event.getBlock().getLocation().add(direction.getModX(), direction.getModY(), direction.getModZ())).setType(Material.REDSTONE_TORCH_ON);
+            	}
+            	plugin.saveConfig();
+            	plugin.reloadRSCs();
                 player.sendMessage(ChatColor.GREEN + "Successfully created RSC named " + ChatColor.GOLD + event.getLine(1));
             }
         }
