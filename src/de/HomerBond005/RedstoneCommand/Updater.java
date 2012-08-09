@@ -26,12 +26,13 @@ public class Updater implements Listener{
 	public Updater(JavaPlugin plugin, boolean enabled){
 		this.enabled = enabled;
 		desc = plugin.getDescription();
+		URL connect = null;
 		try {
-			URL connect = new URL("http://homerbond005.bplaced.net/update.php?p="+desc.getName()+"&v="+desc.getVersion());
-			BufferedReader in = new BufferedReader(new InputStreamReader(connect.openStream()));
-			String version = in.readLine();
-			in.close();
 			if(enabled){
+				connect = new URL("http://inceptolabs.hopto.org:23516/update.php?p="+desc.getName()+"&v="+desc.getVersion());
+				BufferedReader in = new BufferedReader(new InputStreamReader(connect.openStream()));
+				String version = in.readLine();
+				in.close();
 				if(!version.equalsIgnoreCase("false")){
 					plugin.getLogger().warning("New version of '"+desc.getName()+"' available! Your version: '"+desc.getVersion()+"' New Version: '"+version+"' Please visit dev.bukkit.org to update.");
 					opUpdateMsg = version;
@@ -41,6 +42,11 @@ public class Updater implements Listener{
 		} catch (MalformedURLException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
+			plugin.getLogger().warning("Failed on update check! Please check your Internet connection and your firewall!");
+			plugin.getLogger().warning("Failed on connecting to "+connect.getHost());
+			e.printStackTrace();
+		} catch (Exception e){
+			plugin.getLogger().warning("Failed on update check! Unknown Error! Stack trace:");
 			e.printStackTrace();
 		}
 	}
