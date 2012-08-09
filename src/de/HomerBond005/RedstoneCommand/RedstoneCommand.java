@@ -38,6 +38,7 @@ public class RedstoneCommand extends JavaPlugin{
         getConfig().addDefault("RedstoneCommands.Locations", new HashMap<String, Object>());
         getConfig().addDefault("RedstoneCommands.permissionsEnabled", true);
         getConfig().addDefault("RedstoneCommands.signPlaceDirectionModeEnabled", true);
+        getConfig().addDefault("RedstoneCommands.updateReminderEnabled", true);
         getConfig().options().copyDefaults(true);
         saveConfig();
 	    reloadConfig();
@@ -55,7 +56,7 @@ public class RedstoneCommand extends JavaPlugin{
         }catch(IOException e){
         	log.log(Level.WARNING, "Error while enabling Metrics.");
         }
-        updater = new Updater(this);
+        updater = new Updater(this, getConfig().getBoolean("RedstoneCommands.updateReminderEnabled", true));
 		getServer().getPluginManager().registerEvents(updater, this);
 		log.log(Level.INFO, "is enabled!");
     }
