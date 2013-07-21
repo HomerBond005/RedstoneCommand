@@ -39,7 +39,6 @@ public class RedstoneCommand extends JavaPlugin {
 		getConfig().addDefault("RedstoneCommands.Locations", new HashMap<String, Object>());
 		getConfig().addDefault("RedstoneCommands.permissionsEnabled", true);
 		getConfig().addDefault("RedstoneCommands.signPlaceDirectionModeEnabled", true);
-		getConfig().addDefault("RedstoneCommands.updateReminderEnabled", true);
 		getConfig().options().copyDefaults(true);
 		saveConfig();
 		reloadConfig();
