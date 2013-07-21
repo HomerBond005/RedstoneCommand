@@ -25,14 +25,15 @@ import de.bananaco.bpermissions.api.util.CalculableType;
 
 /**
  * Class to check permission nodes. Supports: Vault, PermissionsEx, bPermissions, GroupManager and BukkitPermissions
- * @version v1.1
+ * @version v1.1.1
  * @author HomerBond005
  */
+@SuppressWarnings("deprecation")
 public class PermissionsChecker{
 	int permSys;
 	PermissionManager pexmanager;
     PermissionsPlugin pbplugin;
-    GroupManager gm;
+    GroupManager groupManager;
     Permission vault;
     boolean usePerm;
     Logger log;
@@ -60,7 +61,7 @@ public class PermissionsChecker{
     			permSys = 3;
     		}else if(pm.getPlugin("GroupManager") != null){
     			log.log(Level.INFO, "Using GroupManager!");
-    			gm = (GroupManager)pm.getPlugin("GroupManager");
+    			groupManager = (GroupManager)pm.getPlugin("GroupManager");
     			permSys = 4;
     		}else{
     			log.log(Level.INFO, "Using Bukkit Permissions!");
@@ -81,10 +82,11 @@ public class PermissionsChecker{
     	}else if(permSys == 3){
     		return ApiLayer.hasPermission(player.getWorld().getName(), CalculableType.USER, player.getName(), perm);
     	}else if(permSys == 4){
-    		AnjoPermissionsHandler handler = gm.getWorldsHolder().getWorldPermissions(player.getName());
-    		if (handler == null)
-                return false;
-            return handler.permission(player.getName(), perm);
+    		AnjoPermissionsHandler holder = groupManager.getWorldsHolder().getWorldPermissions(player);
+			if (holder == null) {
+	            return false;
+	        }
+	        return holder.has(player, perm);
     	}else if(permSys == 5){
     		return vault.has(player, perm);
     	}else{

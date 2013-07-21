@@ -1,6 +1,6 @@
 name: RedstoneCommand
 main: de.HomerBond005.RedstoneCommand.RedstoneCommand
-version: 3.0.2
+version: 3.0.3
 author: HomerBond005
 description: Toggle redstone via a command.
 commands:
