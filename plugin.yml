@@ -3,6 +3,7 @@ main: de.homerbond005.redstonecommand.RedstoneCommand
 version: '@PROJECT_VERSION@'
 author: HomerBond005
 description: Toggle redstone via a command.
+softdepend: [Multiverse-Core, MyWorlds, MultiWorld]
 commands:
     rsc:
         description: Toggles redstone power and provides other functions.
